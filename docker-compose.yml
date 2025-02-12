@@ -1,0 +1,34 @@
+version: '3'
+services:
+  postgres:
+    image: postgres:latest
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      retries: 5
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin  
+      POSTGRES_DB: gutendex_utf
+    volumes:
+      - ./init-db:/docker-entrypoint-initdb.d
+    ports:
+      - "5433:5432"  # Exposing 5432 (inside container) as 5433 (on host)
+    networks:
+      - app-network
+
+  webapp:
+    image: bookapp-web  # Replace with your actual web app image name
+    environment:
+      DATABASE_URL: postgresql://postgres:admin@postgres:5433/gutendex_utf
+    ports:
+      - "8000:8000"  # Example port for the web app
+    depends_on:
+        postgres:
+          condition: service_healthy
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
