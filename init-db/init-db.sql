@@ -1,1 +1,1 @@
-CREATE DATABASE gutendex_utf WITH ENCODING='UTF8' TEMPLATE=template0 OWNER postgres;
+SET client_encoding = 'UTF8';
