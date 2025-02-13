@@ -1,0 +1,94 @@
+## export projecid and region
+export PROJECT_ID='my-project-1532453810103'
+export REGION='asia-east1'
+
+### set project and zone var
+gcloud config set project ${PROJECT_ID}
+gcloud config set compute/zone ${REGION}
+
+### assign iam policy	
+gcloud projects add-iam-policy-binding  ${PROJECT_ID} \
+  --member="user:skamlesh03@gmail.com" \
+  --role="roles/artifactregistry.admin"
+
+### enable service  
+gcloud services enable artifactregistry.googleapis.com
+ 
+### command to create artifacts
+gcloud artifacts repositories create book-repo \
+--repository-format=docker \
+--location=${REGION} \
+--description="Docker repository"
+
+### Command to delete artifacts	
+gcloud artifacts repositories delete book-repo --location=${REGION} --quiet
+
+### docker build and push will populate the repo
+docker build -t ${REGION}-docker.pkg.dev/${PROJECT_ID}/book-repo/book-app:latest .
+docker push ${REGION}-docker.pkg.dev/${PROJECT_ID}/book-repo/book-app:latest
+	
+### check repository in artifacts
+gcloud artifacts docker images list ${REGION}-docker.pkg.dev/${PROJECT_ID}/book-rep
+
+### create cluster with 2 node	
+gcloud container clusters create my-cluster \
+  --disk-type=pd-standard \
+  --zone=asia-east1 \
+  --cluster-ipv4-cidr=10.0.0.0/14 \
+  --num-nodes=2
+
+###	check custer info
+gcloud container clusters get-credentials my-cluster --zone ${REGION}
+
+### kubernetes command to deploy docker image
+kubectl create deployment book-app --image=${REGION}-docker.pkg.dev/${PROJECT_ID}/book-repo/book-app:latest
+
+### create 3 replica of docker image	
+kubectl scale deployment book-app --replicas=3
+
+### create and expose service on port 80, imp : target-port and DockerFile port should match
+kubectl expose deployment book-app --name=book-app-service --type=LoadBalancer --port 80 --target-port 8000
+
+### scale pods	
+kubectl autoscale deployment book-app --cpu-percent=80 --min=1 --max=5
+
+### deploy postgres image	
+kubectl apply -f postgres-deployment.yaml
+
+### create postgres service
+kubectl apply -f postgres-service.yaml
+	
+### command to run after code chages in repo
+kubectl scale deployment book-app --replicas=0
+kubectl delete pods -l app=book-app ## optional
+kubectl delete deployment book-app  ## delete ifpods wont; show up for web app
+kubectl create deployment book-app book-app=${REGION}-docker.pkg.dev/${PROJECT_ID}/book-repo/book-app:latest
+kubectl get pods
+kubectl rollout status deployment book-app	
+kubectl get service
+
+	
+### SQL command to import bookdata dump:
+
+export WEB_APP_POD_NAME="web-app-pod-name"
+export WEB_APP_DEPLOYMENT_NAME="web-app-deployment"
+export DB_POD_NAME="postgres-deployment-6664b9d6fd-lwn7m"
+export NAMESPACE="default"
+
+### delete the pod running we app
+kubectl delete pod $WEB_APP_POD_NAME -n $NAMESPACE
+
+### copy dump to db pod
+kubectl cp ~/gutendex.dump ${NAMESPACE}/${DB_POD_NAME}:/tmp/database.dump
+
+### drop the db from db pod
+kubectl exec -it $DB_POD_NAME -n $NAMESPACE -- bash -c "psql -U postgres -c 'DROP DATABASE gutendex_utf;'"
+
+### create the db with UTF8 encoding
+kubectl exec -it $DB_POD_NAME -n $NAMESPACE -- bash -c "psql -U postgres -c 'CREATE DATABASE gutendex_utf WITH ENCODING 'UTF8';'"
+
+### dump the data into UTF8 encoded DB
+kubectl exec -it $DB_POD_NAME -n $NAMESPACE -- bash -c "psql -U postgres -d gutendex_utf -f /tmp/database.dump;" 
+
+### Start the web app pod again
+kubectl rollout restart deployment $WEB_APP_DEPLOYMENT_NAME -n $NAMESPACE
