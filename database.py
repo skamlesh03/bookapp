@@ -9,8 +9,9 @@ from sqlalchemy.orm import relationship, sessionmaker
 from models import Base
 
 # Database URL
-DATABASE_URL = "postgresql://postgres:admin@host.docker.internal:5433/gutendex_utf"
-#DATABASE_URL = "postgresql://postgres:admin@localhost/gutendex_utf" ###  url to test in local
+#DATABASE_URL = "postgresql://postgres:admin@host.docker.internal:5433/gutendex_utf" ### url to run docker image locally
+#DATABASE_URL = "postgresql://postgres:admin@localhost/gutendex_utf" ###  url to test in local without docker
+DATABASE_URL = "postgresql://postgres:admin@postgres-service:5432/gutendex_utf" ###  url for kubernetes
 
 # Create the database engine and sessionmaker
 engine = create_engine(DATABASE_URL, echo=True)

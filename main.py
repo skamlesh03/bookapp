@@ -34,7 +34,12 @@ def get_books(
     if author:
         query = query.filter(Author.name.ilike(f"%{author}%"))
     if language:
-        query = query.filter(Language.code.ilike(f"%{language}%"))
+        lang_list = language.split(',')
+        if len(lang_list) > 1:
+            print("=============================")
+            query = handle_muliple_value(lang_list, Language, query)
+        else:
+            query = query.filter(Language.code.ilike(f"%{language}%"))
     if topic:
         query = query.filter(Subject.name.ilike(f"%{topic}%") | Bookshelf.name.ilike(f"%{topic}%"))
     
@@ -55,3 +60,8 @@ def get_books(
         ))
     
     return result
+
+def handle_muliple_value(input_list, tableName, query):
+    for data in input_list:
+        query = query.filter(tableName.code.ilike(f"%{data}%"))
+    return query
